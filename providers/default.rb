@@ -99,7 +99,6 @@ action :install do
   end
 end
 
-
 ##############
 # action :put
 ##############
@@ -251,56 +250,14 @@ action :cherry_pick do
   end
 end
 
-
 ###########################
 # action :install_with_make
 ###########################
 action :install_with_make do
-  set_paths
 
-  directory new_resource.path do
-    recursive true
-    action :create
-    notifies :run, "execute[unpack #{new_resource.release_file}]"
-  end
-
-  remote_file new_resource.release_file do
-    Chef::Log.debug("DEBUG: new_resource.release_file")
-    source new_resource.url
-    if new_resource.checksum then checksum new_resource.checksum end
-    action :create
-    notifies :run, "execute[unpack #{new_resource.release_file}]"
-  end
-
-  # unpack based on file extension
-  _unpack_command = unpack_command
-  execute "unpack #{new_resource.release_file}" do
-    command _unpack_command
-    cwd new_resource.path
-    environment new_resource.environment
-    notifies :run, "execute[autogen #{new_resource.path}]"
-    notifies :run, "execute[configure #{new_resource.path}]"
-    notifies :run, "execute[make #{new_resource.path}]"
-    notifies :run, "execute[make install #{new_resource.path}]"
-    action :nothing
-  end
-
-  execute "autogen #{new_resource.path}" do
-    command "./autogen.sh"
-    only_if { ::File.exist? "#{new_resource.path}/autogen.sh" }
-    cwd new_resource.path
-    environment new_resource.environment
-    action :nothing
-    ignore_failure true
-  end
-
-  execute "configure #{new_resource.path}" do
-    command "./configure #{new_resource.autoconf_opts.join(' ')}"
-    only_if { ::File.exist? "#{new_resource.path}/configure" }
-    cwd new_resource.path
-    environment new_resource.environment
-    action :nothing
-  end
+  unpack = configure_task
+  unpack.notifies :run, "execute[make #{new_resource.path}]"
+  unpack.notifies :run, "execute[make install #{new_resource.path}]"
 
   execute "make #{new_resource.path}" do
     command "make #{new_resource.make_opts.join(' ')}"
@@ -320,51 +277,9 @@ action :install_with_make do
   # end
 end
 
-
-
-
+###################
+# action :configure
+###################
 action :configure do
-  set_paths
-
-  directory new_resource.path do
-    recursive true
-    action :create
-    notifies :run, "execute[unpack #{new_resource.release_file}]"
-  end
-
-  remote_file new_resource.release_file do
-    Chef::Log.debug("DEBUG: new_resource.release_file")
-    source new_resource.url
-    if new_resource.checksum then checksum new_resource.checksum end
-    action :create
-    notifies :run, "execute[unpack #{new_resource.release_file}]"
-  end
-
-  # unpack based on file extension
-  _unpack_command = unpack_command
-  execute "unpack #{new_resource.release_file}" do
-    command _unpack_command
-    cwd new_resource.path
-    environment new_resource.environment
-    notifies :run, "execute[autogen #{new_resource.path}]"
-    notifies :run, "execute[configure #{new_resource.path}]"
-    action :nothing
-  end
-
-  execute "autogen #{new_resource.path}" do
-    command "./autogen.sh"
-    only_if { ::File.exist? "#{new_resource.path}/autogen.sh" }
-    cwd new_resource.path
-    environment new_resource.environment
-    action :nothing
-    ignore_failure true
-  end
-
-  execute "configure #{new_resource.path}" do
-    command "./configure #{new_resource.autoconf_opts.join(' ')}"
-    only_if { ::File.exist? "#{new_resource.path}/configure" }
-    cwd new_resource.path
-    environment new_resource.environment
-    action :nothing
-  end
+  configure_task
 end
